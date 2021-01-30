@@ -2,7 +2,6 @@ package app
 
 import (
 	"sync"
-	"time"
 
 	"github.com/digineo/zackup/config"
 )
@@ -12,9 +11,8 @@ import (
 // might actually be lower, for now this acts as a safety net.
 const maxParallelity = 255
 
-// To avoid running the same job either parallel or in rapid succession,
-// at least this time apart.
-const duplicateDetectionTime = 5 * time.Minute
+// jobQueueSize defines the capacity for the Queue's job channel.
+const jobQueueSize = 16
 
 // Queue manages the parallel execution of jobs.
 type Queue interface {
@@ -36,8 +34,8 @@ type quitCh chan struct{}
 
 type queue struct {
 	workers     []quitCh
-	workerGroup sync.WaitGroup
 	jobs        chan *config.JobConfig
+	workerGroup sync.WaitGroup
 	jobGroup    sync.WaitGroup
 
 	sync.RWMutex
@@ -46,10 +44,9 @@ type queue struct {
 // NewQueue constructs an empty queue with the given size and starts
 // the same amount of workers.
 func NewQueue() Queue {
-	backlog := 16 // TODO: optimize or make configurable
 	q := queue{
 		workers: make([]quitCh, 0, maxParallelity),
-		jobs:    make(chan *config.JobConfig, backlog),
+		jobs:    make(chan *config.JobConfig, jobQueueSize),
 	}
 
 	q.workerGroup.Add(1)
